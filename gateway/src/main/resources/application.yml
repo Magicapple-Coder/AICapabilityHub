@@ -1,0 +1,65 @@
+server:
+  port: ${GATEWAY_PORT:8080}
+
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${NACOS_ADDR:127.0.0.1:8848}
+        namespace: ${NACOS_NAMESPACE:public}
+    sentinel:
+      transport:
+        dashboard: ${SENTINEL_DASHBOARD:127.0.0.1:8858}
+    gateway:
+      discovery:
+        locator:
+          enabled: true
+          lower-case-service-id: true
+      routes:
+        - id: user-service
+          uri: lb://user-service
+          predicates:
+            - Path=/api/user/**
+        - id: capability-service
+          uri: lb://capability-service
+          predicates:
+            - Path=/api/capability/**
+        - id: billing-service
+          uri: lb://billing-service
+          predicates:
+            - Path=/api/billing/**
+        - id: ai-chat-service
+          uri: lb://ai-chat-service
+          predicates:
+            - Path=/api/chat/**
+      globalcors:
+        add-to-simple-url-handler-mapping: true
+        cors-configurations:
+          '[/**]':
+            allowed-origins:
+              - http://localhost:5173
+            allowed-methods:
+              - GET
+              - POST
+              - PUT
+              - PATCH
+              - DELETE
+              - OPTIONS
+            allowed-headers: "*"
+            exposed-headers:
+              - X-Request-Id
+            allow-credentials: true
+            max-age: 3600
+
+security:
+  jwt:
+    # 本地启动前设置 JWT_SECRET，且 UTF-8 编码后至少 32 字节。
+    secret: ${JWT_SECRET}
+    issuer: ${JWT_ISSUER:ai-capability-hub}
+    ttl: ${JWT_TTL:PT24H}
+
+logging:
+  pattern:
+    level: "%5p [requestId:%X{requestId:-}]"

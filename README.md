@@ -1,0 +1,239 @@
+# AI 能力开放平台（AI Capability Hub）
+
+这是按《AI能力开放平台-开发指南》搭建的可运行 Monorepo 骨架。本次只提供治理、注册发现、统一响应、示例接口和前端登录占位，不实现业务 CRUD，也不连接真实大模型；ai-chat-service 在 USE_MOCK=true 时返回固定 Mock 回复。
+
+## 架构简图
+
+    React 19（5173）
+          │ HTTP + JWT（只访问 /api/**）
+          ▼
+    Spring Cloud Gateway（8080）── Nacos（8848/9848）
+          │ lb:// 服务发现
+          ├── user-service（8081）──── user_db
+          ├── capability-service（8082） capability_db
+          ├── billing-service（8083）── billing_db
+          └── ai-chat-service（8090）── ai_chat_db
+                              │
+                   MySQL 8.4（3306）／Sentinel（8858）
+
+网关校验 JWT 后注入 X-User-Id、X-User-Name、X-Request-Id。服务间调用只允许 /internal/**，前端只走网关；每个服务只连接自己的数据库。
+
+## 锁定版本与端口
+
+| 组件 | 版本/端口 |
+|---|---|
+| JDK / Maven | JDK 21 / Maven 3.9.x |
+| Spring Boot / Cloud / Alibaba | 3.5.x / 2025.0.x / 2025.0.0.0 |
+| Python / FastAPI / Uvicorn | 3.12 / 0.115+ / 0.30+ |
+| Node / React / pnpm | Node 24 / React 19.2 / pnpm |
+| MySQL / Nacos / Sentinel | 8.4 / 2.5.1 / 1.8.10 |
+| 网关 / Python 服务 | 8080 / 8081、8082、8083、8090 |
+| 中间件 / 前端 | MySQL 3306；Nacos 8848、9848；Sentinel 8858；Vite 5173 |
+
+四个独立数据库为 user_db、capability_db、billing_db、ai_chat_db。所有响应统一为：
+
+    {"code":0,"message":"success","data":{},"requestId":"..."}
+
+错误码按 1xxx 认证、2xxx 能力、3xxx 计费、4xxx 系统、5xxx 模型划分。
+
+## 环境要求
+
+在 Windows PowerShell 中确认：
+
+    java -version       # JDK 21
+    mvn -v              # Maven 3.9
+    python --version    # Python 3.12
+    node -v             # Node 24
+    pnpm -v
+    docker -v
+
+Docker Desktop 必须处于运行状态。首次启动前在仓库根目录设置网关签名密钥（至少 32 个 UTF-8 字节）：
+
+    $env:JWT_SECRET = 'change-this-local-secret-to-at-least-32-bytes'
+
+不要把真实 .env、Token、密码或模型 Key 提交到仓库。
+
+## 从零启动
+
+### 1. 启动中间件并自动建库
+
+    Set-Location .\deploy
+    docker compose up -d
+    docker compose ps
+
+MySQL 首次创建数据卷时会执行 mysql/init/01_create_databases.sql，创建四个库。若已有旧数据卷，初始化脚本不会重复执行；请在 MySQL 中只读检查库是否存在，再按需手动执行脚本。
+
+四个服务各自提供一张骨架示例表。首次启动可在仓库根目录执行：
+
+    Set-Location D:\AICapabilityHub
+    $dbPassword = if ($env:MYSQL_ROOT_PASSWORD) { $env:MYSQL_ROOT_PASSWORD } else { 'root' }
+    Get-Content .\services\user-service\sql\01_init.sql -Raw | docker exec -i -e MYSQL_PWD=$dbPassword aihub-mysql mysql -uroot
+    Get-Content .\services\capability-service\sql\01_init.sql -Raw | docker exec -i -e MYSQL_PWD=$dbPassword aihub-mysql mysql -uroot
+    Get-Content .\services\billing-service\sql\01_init.sql -Raw | docker exec -i -e MYSQL_PWD=$dbPassword aihub-mysql mysql -uroot
+    Get-Content .\services\ai-chat-service\sql\01_init.sql -Raw | docker exec -i -e MYSQL_PWD=$dbPassword aihub-mysql mysql -uroot
+
+### 2. 启动网关
+
+    Set-Location ..\gateway
+    $env:JWT_SECRET = 'change-this-local-secret-to-at-least-32-bytes'
+    mvn -q -DskipTests package
+    mvn spring-boot:run
+
+也可以执行：
+
+    java -jar target\api-gateway-0.1.0-SNAPSHOT.jar
+
+### 3. 启动四个 Python 服务
+
+每个服务使用自己目录内的独立 `.venv`。打开四个新的 PowerShell 窗口，分别执行对应的完整命令。
+
+窗口一，启动 user-service：
+
+    Set-Location D:\AICapabilityHub\services\user-service
+    python -m venv .venv
+    .\.venv\Scripts\Activate.ps1
+    python -m pip install -r requirements.txt
+    if (-not (Test-Path -LiteralPath '.env')) { Copy-Item -LiteralPath '.env.example' -Destination '.env' }
+    python -m uvicorn app.main:app --host 127.0.0.1 --port 8081
+
+窗口二，启动 capability-service：
+
+    Set-Location D:\AICapabilityHub\services\capability-service
+    python -m venv .venv
+    .\.venv\Scripts\Activate.ps1
+    python -m pip install -r requirements.txt
+    if (-not (Test-Path -LiteralPath '.env')) { Copy-Item -LiteralPath '.env.example' -Destination '.env' }
+    python -m uvicorn app.main:app --host 127.0.0.1 --port 8082
+
+窗口三，启动 billing-service：
+
+    Set-Location D:\AICapabilityHub\services\billing-service
+    python -m venv .venv
+    .\.venv\Scripts\Activate.ps1
+    python -m pip install -r requirements.txt
+    if (-not (Test-Path -LiteralPath '.env')) { Copy-Item -LiteralPath '.env.example' -Destination '.env' }
+    python -m uvicorn app.main:app --host 127.0.0.1 --port 8083
+
+窗口四，启动 ai-chat-service：
+
+    Set-Location D:\AICapabilityHub\services\ai-chat-service
+    python -m venv .venv
+    .\.venv\Scripts\Activate.ps1
+    python -m pip install -r requirements.txt
+    if (-not (Test-Path -LiteralPath '.env')) { Copy-Item -LiteralPath '.env.example' -Destination '.env' }
+    python -m uvicorn app.main:app --host 127.0.0.1 --port 8090
+
+每个服务的 .env.example 已预填服务名、端口和对应库名。启动后可在 Nacos 控制台 http://localhost:8848/nacos（nacos/nacos）查看实例。
+
+### Nacos 模型配置热更新
+
+ai-chat-service 默认读取 Nacos 配置 `ai-chat-service-model.json`，统一使用 `DEFAULT_GROUP`；复制统一基座运行的 demo-service 默认读取 `demo-service-model.json`。JSON 配置仅包含以下三个字段，不要增加未实现的字段：
+
+    {
+      "use_mock": true,
+      "model_base_url": "https://api.example.com/v1",
+      "model_api_key": "replace-me"
+    }
+
+服务启动时先通过 Nacos 配置接口拉取配置，之后每 5 秒检查一次变更；发布有效变更后会更新运行时快照，无需重启服务。配置读取不启用 SDK 磁盘快照，不把模型 Key 写入工作区缓存。本地 `.env` 中的同名配置是安全回退：Nacos 暂不可用、配置为空或格式无效时，服务继续使用本地值或最近一次有效配置。
+
+以下 Windows PowerShell 示例发布 ai-chat-service 的配置；若要测试统一基座，把 `$dataId` 改为 `demo-service-model.json`。示例只使用占位值 `replace-me`，命令不打印配置内容；不要把真实 Key 写入共享脚本、终端输出或日志。
+
+    $dataId = 'ai-chat-service-model.json'
+    $modelConfig = @{
+        use_mock = $true
+        model_base_url = 'https://api.example.com/v1'
+        model_api_key = 'replace-me'
+    } | ConvertTo-Json -Compress
+    Invoke-RestMethod `
+        -Method Post `
+        -Uri 'http://localhost:8848/nacos/v1/cs/configs' `
+        -ContentType 'application/x-www-form-urlencoded' `
+        -Body @{ dataId = $dataId; group = 'DEFAULT_GROUP'; type = 'json'; content = $modelConfig } |
+        Out-Null
+    Write-Host 'Nacos 模型配置发布请求已提交，未输出配置内容。'
+
+### 4. 启动前端
+
+    Set-Location D:\AICapabilityHub\web
+    pnpm install
+    pnpm dev
+
+打开 http://localhost:5173。默认前端使用本地占位登录，不会调用真实登录接口；在 web/.env 设置 VITE_USE_MOCK_LOGIN=false 可切换到网关 /api/user/login，VITE_DEV_TOKEN 可配置本地演示 Token（仅开发用途）。
+
+## DevTokenTool：获取本地联调 JWT
+
+网关配置的密钥与工具必须一致。先在同一 PowerShell 设置 JWT_SECRET，再执行：
+
+    Set-Location D:\AICapabilityHub\gateway
+    mvn -q -DskipTests package
+    .\mvnw.cmd -q exec:java '-Dexec.mainClass=com.aicapabilityhub.gateway.tool.DevTokenTool' '-Dexec.args=1 dev-user'
+
+工具会打印 Token 并立即用同一密钥校验。请把输出临时放入环境变量，不要写入仓库：
+
+    $token = '<上一步输出的 JWT>'
+
+## 自测命令
+
+直连服务（调试时手动补透传头）：
+
+    curl.exe http://localhost:8081/health
+    curl.exe -H "X-User-Id: 1" -H "X-User-Name: dev-user" http://localhost:8081/api/user/ping
+    curl.exe -H "X-User-Id: 1" http://localhost:8090/api/chat/ping
+    curl.exe -H "Content-Type: application/json" -H "X-User-Id: 1" -d '{"messages":[{"role":"user","content":"你好"}]}' http://localhost:8090/api/chat/completions
+
+经网关访问：
+
+    curl.exe -H "Authorization: Bearer $token" http://localhost:8080/api/user/ping
+    curl.exe -H "Authorization: Bearer $token" http://localhost:8080/api/capability/ping
+    curl.exe -H "Authorization: Bearer $token" http://localhost:8080/api/billing/ping
+    curl.exe -H "Authorization: Bearer $token" http://localhost:8080/api/chat/ping
+    curl.exe -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"messages":[{"role":"user","content":"你好"}]}' http://localhost:8080/api/chat/completions
+
+通过服务发现定位器检查四个服务的健康状态（无需 Token）：
+
+    curl.exe http://localhost:8080/user-service/health
+    curl.exe http://localhost:8080/capability-service/health
+    curl.exe http://localhost:8080/billing-service/health
+    curl.exe http://localhost:8080/ai-chat-service/health
+
+/health、注册/登录和能力市场白名单不需要 Token；任何外部 /internal/** 请求都返回 403。业务错误仍用 HTTP 200，通过 code 判断；网关认证失败是 HTTP 401、code=1001。
+
+## 常见问题
+
+- Docker 无法连接：确认 Docker Desktop 已启动，并在 deploy 目录重试 docker compose up -d。
+- Docker Hub 拉取超时：为 Docker Desktop 配置组织允许的 HTTPS 代理或镜像代理，镜像名与固定 tag 不得改成其他版本。
+- Nacos 看不到服务：核对 .env 中 SERVICE_NAME、SERVICE_PORT、NACOS_ADDR，查看注册日志；Nacos 暂不可用时基座会重试且不阻止 HTTP 服务启动。
+- 网关 503 / service not found：服务尚未注册、服务名或端口不匹配；确认服务名全小写且以 -service 结尾。
+- 返回 1001：缺少或过期 JWT；检查 Authorization: Bearer 和 JWT_SECRET 是否与签发工具一致。
+- 下游没有身份头：只有经网关才会自动注入；直连调试需手动添加 X-User-Id 等头。
+- Python 连不上 MySQL：检查 3306、对应库名和账号；示例路由不要求数据库连接，建表脚本可在库创建后执行。
+- 跨域：CORS 只在网关允许 http://localhost:5173；前端不要直连 Python 端口。
+- 端口占用：按指南端口表释放占用后再启动，不要随意改变服务名与路由约定。
+- 跨主机联调：可把 Uvicorn 改为 `--host 0.0.0.0`，同时将 `SERVICE_HOST` 设置为网关可访问的实际 IP，禁止向 Nacos 注册 `0.0.0.0`。
+- 依赖安装失败：保持锁定的大版本，禁止擅自换到 Python 3.13、Boot 4、Nacos 3 或 MySQL 9。
+
+## 骨架自检
+
+    Set-Location .\gateway
+    mvn -q -DskipTests package
+
+    # 在任一服务目录
+    python -c "import app.main; print('import ok')"
+
+    Set-Location ..\web
+    pnpm build
+
+若 Docker Desktop 引擎未运行，先启动引擎再执行容器与全链路验收。
+
+## 目录
+
+    D:\AICapabilityHub
+    ├─ deploy/                       # MySQL、Nacos、Sentinel
+    ├─ gateway/                      # 唯一 Java 网关
+    ├─ platform-py/service-template/ # Python 可复制基座
+    ├─ services/                     # 四个 Python 服务
+    ├─ web/                          # React 前端
+    ├─ docs/api-contract/            # 接口契约模板
+    ├─ CONTRIBUTING.md
+    └─ AI能力开放平台-开发指南.md     # 权威规范（不修改）

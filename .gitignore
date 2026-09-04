@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# 环境变量与密钥
+.env
+.env.*
+!.env.example
+
+# Java / Maven
+target/
+*.class
+
+# Node / 前端
+node_modules/
+web/dist/
+
+# IDE / 操作系统
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# 本地数据与日志
+deploy/data/
+nacos-data/
+*.log
