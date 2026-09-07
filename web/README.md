@@ -9,7 +9,13 @@ pnpm install
 pnpm dev
 ```
 
-默认访问 <http://localhost:5173>。复制 `.env.example` 为 `.env` 后可配置网关地址；开发阶段 `VITE_USE_MOCK_LOGIN=true` 会使用占位登录，不调用后端。
+默认访问 <http://localhost:5173>。复制 `.env.example` 为 `.env` 后可配置网关地址；开发阶段 `/api` 由 Vite 代理到 `VITE_DEV_GATEWAY_URL`（默认 `http://localhost:8080`）。`VITE_USE_MOCK_LOGIN=true` 会使用占位登录，不调用后端。
+
+## Nginx 生产入口
+
+仓库根目录执行 `docker compose -f deploy/docker-compose.yml up -d --build nginx` 时，Compose 会用 Node 24 构建当前前端，并由 Nginx 托管 `dist`；浏览器访问 <http://localhost>（或 `NGINX_PORT` 配置的端口）。Nginx 将 `/api/**` 同源转发到 Spring Cloud Gateway，前端不需要直连 Python 服务。
+
+生产构建默认使用 Mock 登录。需要切换真实登录接口时，在 `deploy/.env` 设置 `VITE_USE_MOCK_LOGIN=false` 后执行 `docker compose -f deploy/docker-compose.yml up -d --build nginx`。
 
 ## 目录
 

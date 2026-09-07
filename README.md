@@ -1,12 +1,13 @@
 # AI 能力开放平台（AI Capability Hub）
 
-这是按《AI能力开放平台-开发指南》搭建的可运行 Monorepo 骨架。本次只提供治理、注册发现、统一响应、示例接口和前端登录占位，不实现业务 CRUD，也不连接真实大模型；ai-chat-service 在 USE_MOCK=true 时返回固定 Mock 回复。
+这是按《AI能力开放平台-开发指南》搭建的可运行 Monorepo 骨架。本次只提供治理、注册发现、统一响应、示例接口和前端登录占位，不实现业务 CRUD，也不连接真实大模型；ai-chat-service 在 USE_MOCK=true 时返回固定 Mock 回复。Nginx 作为前端生产入口，负责静态资源托管和 `/api/**` 反向代理，Spring Cloud Gateway 仍是唯一后端网关。
 
 ## 架构简图
 
-    React 19（5173）
-          │ HTTP + JWT（只访问 /api/**）
-          ▼
+    浏览器
+      ├─ 开发：Vite（5173）── /api 代理 ──┐
+      └─ 生产：Nginx（80）── 静态文件 + /api ─┤
+                                             ▼
     Spring Cloud Gateway（8080）── Nacos（8848/9848）
           │ lb:// 服务发现
           ├── user-service（8081）──── user_db
@@ -16,7 +17,7 @@
                               │
                    MySQL 8.4（3306）／Sentinel（8858）
 
-网关校验 JWT 后注入 X-User-Id、X-User-Name、X-Request-Id。服务间调用只允许 /internal/**，前端只走网关；每个服务只连接自己的数据库。
+Nginx 不替代网关：网关仍负责 JWT、限流、路由和身份透传。网关校验 JWT 后注入 X-User-Id、X-User-Name、X-Request-Id。服务间调用只允许 /internal/**，前端只通过 Nginx 或 Vite 的 `/api/**` 访问网关；每个服务只连接自己的数据库。
 
 ## 锁定版本与端口
 
@@ -27,8 +28,9 @@
 | Python / FastAPI / Uvicorn | 3.12 / 0.115+ / 0.30+ |
 | Node / React / pnpm | Node 24 / React 19.2 / pnpm |
 | MySQL / Nacos / Sentinel | 8.4 / 2.5.1 / 1.8.10 |
+| Nginx | 1.27-alpine（生产前端入口） |
 | 网关 / Python 服务 | 8080 / 8081、8082、8083、8090 |
-| 中间件 / 前端 | MySQL 3306；Nacos 8848、9848；Sentinel 8858；Vite 5173 |
+| 中间件 / 前端 | MySQL 3306；Nacos 8848、9848；Sentinel 8858；Vite 5173；Nginx 80（可配置） |
 
 四个独立数据库为 user_db、capability_db、billing_db、ai_chat_db。所有响应统一为：
 
@@ -58,8 +60,11 @@ Docker Desktop 必须处于运行状态。首次启动前在仓库根目录设�
 ### 1. 启动中间件并自动建库
 
     Set-Location .\deploy
-    docker compose up -d
+    if (-not (Test-Path -LiteralPath '.env')) { Copy-Item -LiteralPath '.env.example' -Destination '.env' }
+    docker compose up -d --build
     docker compose ps
+
+这条命令会启动 MySQL、Nacos、Sentinel，并构建启动 Nginx。Nginx 默认监听 `http://localhost`，把 `/api/**` 转发到宿主机的 `host.docker.internal:8080`。如果网关部署在别处，在 `deploy/.env` 修改 `NGINX_GATEWAY_UPSTREAM=主机名或IP:端口` 后重新执行 `docker compose up -d --build nginx`。只启动中间件时可执行 `docker compose up -d mysql nacos sentinel`。
 
 MySQL 首次创建数据卷时会执行 mysql/init/01_create_databases.sql，创建四个库。若已有旧数据卷，初始化脚本不会重复执行；请在 MySQL 中只读检查库是否存在，再按需手动执行脚本。
 
@@ -161,6 +166,15 @@ ai-chat-service 默认读取 Nacos 配置 `ai-chat-service-model.json`，统一�
 
 打开 http://localhost:5173。默认前端使用本地占位登录，不会调用真实登录接口；在 web/.env 设置 VITE_USE_MOCK_LOGIN=false 可切换到网关 /api/user/login，VITE_DEV_TOKEN 可配置本地演示 Token（仅开发用途）。
 
+此时也可以使用 Nginx 提供的生产构建：打开 http://localhost，或执行 `curl.exe http://localhost/nginx-health` 检查 Nginx。Nginx 镜像构建时使用 `deploy/.env` 中的 `VITE_API_BASE_URL` 和 `VITE_USE_MOCK_LOGIN`；切换这些值后需要重新构建 `nginx` 服务。
+
+如果只想使用 Nginx 而不启动 Vite：
+
+    Set-Location D:\AICapabilityHub\deploy
+    docker compose up -d --build nginx
+
+默认 Nginx 端口为 80；端口被占用时，在 `deploy/.env` 设置 `NGINX_PORT=8088`，然后访问 http://localhost:8088。
+
 ## DevTokenTool：获取本地联调 JWT
 
 网关配置的密钥与工具必须一致。先在同一 PowerShell 设置 JWT_SECRET，再执行：
@@ -190,6 +204,12 @@ ai-chat-service 默认读取 Nacos 配置 `ai-chat-service-model.json`，统一�
     curl.exe -H "Authorization: Bearer $token" http://localhost:8080/api/chat/ping
     curl.exe -H "Authorization: Bearer $token" -H "Content-Type: application/json" -d '{"messages":[{"role":"user","content":"你好"}]}' http://localhost:8080/api/chat/completions
 
+经 Nginx 访问（网关 JWT、统一 Result 和路由规则不变）：
+
+    curl.exe http://localhost/nginx-health
+    curl.exe -H "Authorization: Bearer $token" http://localhost/api/user/ping
+    curl.exe -H "Authorization: Bearer $token" http://localhost/api/capability/ping
+
 通过服务发现定位器检查四个服务的健康状态（无需 Token）：
 
     curl.exe http://localhost:8080/user-service/health
@@ -203,6 +223,10 @@ ai-chat-service 默认读取 Nacos 配置 `ai-chat-service-model.json`，统一�
 
 - Docker 无法连接：确认 Docker Desktop 已启动，并在 deploy 目录重试 docker compose up -d。
 - Docker Hub 拉取超时：为 Docker Desktop 配置组织允许的 HTTPS 代理或镜像代理，镜像名与固定 tag 不得改成其他版本。
+- Nginx 构建下载 npm 依赖超时：在 `deploy/.env` 临时设置 `NPM_REGISTRY=https://registry.npmmirror.com`（或组织批准的 npm 镜像）后执行 `docker compose up -d --build nginx`；依赖版本仍由 `pnpm-lock.yaml` 锁定。
+- Nginx 返回 502：确认网关已经启动并监听 8080；检查 `deploy/.env` 的 `NGINX_GATEWAY_UPSTREAM`，宿主机服务默认使用 `host.docker.internal:8080`。
+- Nginx 无法启动：检查 80 端口是否被占用；在 `deploy/.env` 设置 `NGINX_PORT` 为可用端口，并执行 `docker compose up -d --build nginx`。
+- Nginx 页面空白或资源 404：确认已使用 `--build` 重新构建镜像；前端资源在镜像内，不需要也不应提交 `web/dist`。
 - Nacos 看不到服务：核对 .env 中 SERVICE_NAME、SERVICE_PORT、NACOS_ADDR，查看注册日志；Nacos 暂不可用时基座会重试且不阻止 HTTP 服务启动。
 - 网关 503 / service not found：服务尚未注册、服务名或端口不匹配；确认服务名全小写且以 -service 结尾。
 - 返回 1001：缺少或过期 JWT；检查 Authorization: Bearer 和 JWT_SECRET 是否与签发工具一致。
@@ -224,12 +248,13 @@ ai-chat-service 默认读取 Nacos 配置 `ai-chat-service-model.json`，统一�
     Set-Location ..\web
     pnpm build
 
-若 Docker Desktop 引擎未运行，先启动引擎再执行容器与全链路验收。
+若 Docker Desktop 引擎未运行，先启动引擎再执行容器与全链路验收。Nginx 镜像首次构建需要拉取 Node 24 和 Nginx 基础镜像。
 
 ## 目录
 
     D:\AICapabilityHub
-    ├─ deploy/                       # MySQL、Nacos、Sentinel
+    ├─ deploy/                       # Nginx、MySQL、Nacos、Sentinel
+    │  └─ nginx/                     # Nginx 配置与前端多阶段构建文件
     ├─ gateway/                      # 唯一 Java 网关
     ├─ platform-py/service-template/ # Python 可复制基座
     ├─ services/                     # 四个 Python 服务

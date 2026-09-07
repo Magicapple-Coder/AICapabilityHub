@@ -4,7 +4,8 @@ const asBoolean = (value: string | undefined, fallback: boolean): boolean => {
 }
 
 export const env = {
-  apiBaseUrl: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080',
+  // 开发由 Vite 代理 /api，生产由 Nginx 代理 /api，统一使用同源路径。
+  apiBaseUrl: import.meta.env.VITE_API_BASE_URL || '/api',
   useMockLogin: asBoolean(import.meta.env.VITE_USE_MOCK_LOGIN, true),
   devToken: import.meta.env.VITE_DEV_TOKEN || '',
 }
