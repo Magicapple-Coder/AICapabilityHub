@@ -27,6 +27,7 @@ Nginx 不替代网关：网关仍负责 JWT、限流、路由和身份透传。�
 | Spring Boot / Cloud / Alibaba | 3.5.x / 2025.0.x / 2025.0.0.0 |
 | Python / FastAPI / Uvicorn | 3.12 / 0.115+ / 0.30+ |
 | Node / React / pnpm | Node 24 / React 19.2 / pnpm |
+| Web UI | Tailwind CSS 4、GSAP ScrollTrigger、Ant Design 5 |
 | MySQL / Nacos / Sentinel | 8.4 / 2.5.1 / 1.8.10 |
 | Nginx | 1.27-alpine（生产前端入口） |
 | 网关 / Python 服务 | 8080 / 8081、8082、8083、8090 |
@@ -164,7 +165,7 @@ ai-chat-service 默认读取 Nacos 配置 `ai-chat-service-model.json`，统一�
     pnpm install
     pnpm dev
 
-打开 http://localhost:5173。默认前端使用本地占位登录，不会调用真实登录接口；在 web/.env 设置 VITE_USE_MOCK_LOGIN=false 可切换到网关 /api/user/login，VITE_DEV_TOKEN 可配置本地演示 Token（仅开发用途）。
+打开 http://localhost:5173。前端工作台包含登录、能力市场、在线调试、调用记录和开发者中心页面，使用 Tailwind CSS 4 完成布局与视觉样式，GSAP ScrollTrigger 负责首页滚动动效。默认前端使用本地占位登录，不会调用真实登录接口；在 web/.env 设置 VITE_USE_MOCK_LOGIN=false 可切换到网关 /api/user/login，VITE_DEV_TOKEN 可配置本地演示 Token（仅开发用途）。
 
 此时也可以使用 Nginx 提供的生产构建：打开 http://localhost，或执行 `curl.exe http://localhost/nginx-health` 检查 Nginx。Nginx 镜像构建时使用 `deploy/.env` 中的 `VITE_API_BASE_URL` 和 `VITE_USE_MOCK_LOGIN`；切换这些值后需要重新构建 `nginx` 服务。
 

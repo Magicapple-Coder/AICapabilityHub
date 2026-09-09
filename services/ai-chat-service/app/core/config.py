@@ -31,6 +31,10 @@ class Settings(BaseSettings):
 
     db_url: str = "mysql+pymysql://root:root@127.0.0.1:3306/ai_chat_db?charset=utf8mb4"
     internal_call_timeout: float = Field(default=10.0, gt=0)
+    enable_internal_chain: bool = False
+    user_service_name: str = "user-service"
+    billing_service_name: str = "billing-service"
+    points_cost: int = Field(default=1, ge=0)
 
     use_mock: bool = True
     model_base_url: str = "https://api.example.com/v1"

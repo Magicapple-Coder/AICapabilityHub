@@ -1,9 +1,7 @@
-import { RobotOutlined } from '@ant-design/icons'
-
 export function BrandMark() {
   return (
-    <div className="brand-mark" aria-label="AI 能力开放平台">
-      <span className="brand-mark__icon"><RobotOutlined /></span>
+    <div className="flex items-center gap-3 text-sm font-semibold tracking-tight text-[#f4f4ef]" aria-label="AI 能力开放平台">
+      <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#c9f05b] text-sm font-black text-[#11130f]">A</span>
       <span>AI 能力开放平台</span>
     </div>
   )

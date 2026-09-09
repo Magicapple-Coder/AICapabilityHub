@@ -1,2 +1,5 @@
 """数据访问层；模板暂不包含业务实现。"""
 # TODO: 按业务需求补充数据访问实现，禁止跨库查询。
+from app.repository.chat_repository import chat_repository
+
+__all__ = ["chat_repository"]

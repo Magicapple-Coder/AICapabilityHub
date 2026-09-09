@@ -3,7 +3,10 @@ import { AppShell } from '@/components/AppShell'
 import { AuthGuard } from './AuthGuard'
 import { LoginPage } from '@/pages/LoginPage'
 import { OverviewPage } from '@/pages/OverviewPage'
-import { PlaceholderPage } from '@/pages/PlaceholderPage'
+import { CapabilitiesPage } from '@/pages/CapabilitiesPage'
+import { ChatPage } from '@/pages/ChatPage'
+import { UsagePage } from '@/pages/UsagePage'
+import { SettingsPage } from '@/pages/SettingsPage'
 
 export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
@@ -14,9 +17,10 @@ export const router = createBrowserRouter([
         element: <AppShell />,
         children: [
           { index: true, element: <OverviewPage /> },
-          { path: 'capabilities', element: <PlaceholderPage title="能力市场" description="浏览和调试已上架的 AI 能力" /> },
-          { path: 'settings', element: <PlaceholderPage title="设置" description="管理开发者账号与访问凭证" /> },
-          { path: 'usage', element: <PlaceholderPage title="调用记录" description="查看能力调用与计量信息" /> },
+          { path: 'capabilities', element: <CapabilitiesPage /> },
+          { path: 'chat', element: <ChatPage /> },
+          { path: 'settings', element: <SettingsPage /> },
+          { path: 'usage', element: <UsagePage /> },
         ],
       },
     ],

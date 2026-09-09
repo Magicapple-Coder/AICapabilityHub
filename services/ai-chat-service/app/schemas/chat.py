@@ -9,6 +9,7 @@ class ChatMessage(BaseModel):
 
 
 class ChatCompletionRequest(BaseModel):
+    session_id: int | None = Field(default=None, ge=1)
     model: str = Field(default="mock-model", min_length=1, max_length=128)
     messages: list[ChatMessage] = Field(min_length=1)
     temperature: float = Field(default=0.7, ge=0, le=2)

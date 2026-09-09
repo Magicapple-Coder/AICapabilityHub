@@ -1,6 +1,6 @@
 # ai-chat-service
 
-对话能力服务的 FastAPI 可运行骨架，独立使用 ai_chat_db；本轮不实现业务 CRUD。
+对话能力服务的 FastAPI 可运行样板，独立使用 ai_chat_db，包含 Mock 对话、会话/消息只读接口和可选的 user/billing 内部链路。
 
 ## 启动
 
@@ -47,4 +47,6 @@ Write-Host 'Nacos 模型配置发布请求已提交，未输出配置内容。'
 
 按 models、schemas、repository、service、api 分层扩展。服务间调用必须通过 app.core.service_call.call_internal 访问 /internal/**，不得写死其它服务地址。
 
-POST /api/chat/completions 接受 OpenAI 风格 messages。USE_MOCK=true 时返回固定假回复且不访问外部模型；false 时返回 5002 占位错误，等待后续接入真实模型。
+POST /api/chat/completions 接受 OpenAI 风格 messages。USE_MOCK=true 时返回固定假回复且不访问外部模型；false 时返回 5002 占位错误，等待后续接入真实模型。GET `/api/chat/sessions` 与 GET `/api/chat/sessions/{id}/messages` 读取当前用户的软删除过滤数据。
+
+联调 user-service 与 billing-service 时，将 `ENABLE_INTERNAL_CHAIN=true`；服务会按“校验用户积分 → 执行 Mock → 上报计费”顺序调用 `/internal/**`，并透传当前 requestId。保持默认 `false` 可以单独启动本服务验证 Mock。

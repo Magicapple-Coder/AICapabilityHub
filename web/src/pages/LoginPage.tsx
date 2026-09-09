@@ -1,6 +1,5 @@
 import { useState } from 'react'
-import { Alert, Button, Card, Form, Input, Typography, message } from 'antd'
-import { LockOutlined, UserOutlined } from '@ant-design/icons'
+import { ArrowUpRight, LockKeyhole, UserRound } from 'lucide-react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { login } from '@/api/auth'
 import type { LoginPayload } from '@/api/types'
@@ -8,53 +7,13 @@ import { useAuthStore } from '@/stores/auth'
 import { BrandMark } from '@/components/BrandMark'
 
 export function LoginPage() {
-  const [form] = Form.useForm<LoginPayload>()
+  const [form, setForm] = useState<LoginPayload>({ username: 'developer', password: '' })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const navigate = useNavigate()
-  const location = useLocation()
-  const setAuth = useAuthStore((state) => state.setAuth)
-
-  const onFinish = async (values: LoginPayload) => {
-    setLoading(true)
-    setError('')
-    try {
-      const data = await login(values)
-      setAuth(data)
-      message.success('登录成功')
-      const target = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname || '/'
-      navigate(target, { replace: true })
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : '登录失败，请稍后重试')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  return (
-    <main className="login-page">
-      <div className="login-page__aside">
-        <BrandMark />
-        <div>
-          <Typography.Title level={1}>连接每一种 AI 能力</Typography.Title>
-          <Typography.Paragraph>统一接入、快速调试，让能力交付更简单。</Typography.Paragraph>
-        </div>
-        <Typography.Text type="secondary">AI Capability Hub · Developer Preview</Typography.Text>
-      </div>
-      <Card className="login-card" bordered={false}>
-        <Typography.Title level={2}>欢迎回来</Typography.Title>
-        <Typography.Paragraph type="secondary">登录开发者工作台，管理你的能力调用。</Typography.Paragraph>
-        {error && <Alert className="login-card__alert" type="error" showIcon message={error} />}
-        <Form form={form} layout="vertical" onFinish={onFinish} initialValues={{ username: 'developer' }} requiredMark={false}>
-          <Form.Item name="username" label="账号" rules={[{ required: true, message: '请输入账号' }]}>
-            <Input size="large" prefix={<UserOutlined />} placeholder="请输入账号" autoComplete="username" />
-          </Form.Item>
-          <Form.Item name="password" label="密码" rules={[{ required: true, message: '请输入密码' }]}>
-            <Input.Password size="large" prefix={<LockOutlined />} placeholder="请输入密码" autoComplete="current-password" />
-          </Form.Item>
-          <Button type="primary" htmlType="submit" size="large" block loading={loading}>登录</Button>
-        </Form>
-      </Card>
-    </main>
-  )
+  const navigate = useNavigate(); const location = useLocation(); const setAuth = useAuthStore((state) => state.setAuth)
+  const submit = async (event: React.FormEvent) => { event.preventDefault(); setLoading(true); setError(''); try { const data = await login(form); setAuth(data); navigate((location.state as { from?: { pathname?: string } } | null)?.from?.pathname || '/', { replace: true }) } catch (cause) { setError(cause instanceof Error ? cause.message : '登录失败') } finally { setLoading(false) } }
+  return <main className="grid min-h-screen overflow-hidden bg-[#11130f] text-[#f4f4ef] md:grid-cols-[1.1fr_.9fr]">
+    <section className="relative hidden min-h-screen overflow-hidden border-r border-white/10 p-10 md:flex md:flex-col md:justify-between lg:p-16"><img className="absolute inset-0 h-full w-full object-cover grayscale opacity-35 mix-blend-luminosity" src="https://picsum.photos/seed/entry/1400/1800" alt="" /><div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(17,19,15,.2),#11130f_90%)]" /><div className="relative"><BrandMark /></div><div className="relative max-w-2xl"><p className="mb-7 text-xs uppercase tracking-[.28em] text-[#c9f05b]">A workspace for useful intelligence</p><h1 className="max-w-4xl text-[clamp(3rem,5vw,5.5rem)] font-medium leading-[.95] tracking-[-.07em]">让每一种<br /><span className="text-[#c9f05b]">AI 能力</span>都有入口。</h1><p className="mt-7 max-w-md text-base leading-7 text-white/55">连接、验证、组合。把实验室里的模型，变成团队可以依赖的能力。</p></div><p className="relative text-xs uppercase tracking-[.2em] text-white/35">AI Capability Hub · Developer Preview</p></section>
+    <section className="flex min-h-screen flex-col justify-between px-6 py-7 sm:px-10 md:px-16 lg:px-24"><div className="md:hidden"><BrandMark /></div><div className="mx-auto w-full max-w-md self-center py-20"><p className="mb-4 text-sm text-[#c9f05b]">欢迎回来</p><h2 className="text-4xl font-medium tracking-[-.06em]">进入你的工作台</h2><p className="mt-4 text-sm leading-6 text-white/45">用开发者账号登录，继续调试你的下一次调用。</p><form className="mt-10 space-y-5" onSubmit={submit}><label className="block"><span className="mb-2 block text-xs uppercase tracking-[.18em] text-white/45">账号</span><span className="flex items-center gap-3 border-b border-white/15 py-3 focus-within:border-[#c9f05b]"><UserRound size={17} className="text-white/35" /><input required value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} className="w-full bg-transparent text-base outline-none placeholder:text-white/25" placeholder="developer" autoComplete="username" /></span></label><label className="block"><span className="mb-2 block text-xs uppercase tracking-[.18em] text-white/45">密码</span><span className="flex items-center gap-3 border-b border-white/15 py-3 focus-within:border-[#c9f05b]"><LockKeyhole size={17} className="text-white/35" /><input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} className="w-full bg-transparent text-base outline-none placeholder:text-white/25" placeholder="本地 Mock 登录可留空" autoComplete="current-password" /></span></label>{error && <p className="border border-red-400/30 bg-red-400/10 p-3 text-sm text-red-200">{error}</p>}<button disabled={loading} className="group mt-5 flex w-full items-center justify-between rounded-full bg-[#c9f05b] px-6 py-4 text-sm font-semibold text-[#11130f] transition hover:bg-white disabled:cursor-wait disabled:opacity-60">{loading ? '正在连接…' : '进入工作台'}<ArrowUpRight size={18} className="transition group-hover:translate-x-1 group-hover:-translate-y-1" /></button></form><p className="mt-7 text-xs leading-5 text-white/30">当前默认使用本地占位登录。将 `VITE_USE_MOCK_LOGIN` 设为 false 后接入网关登录接口。</p></div><p className="text-center text-xs text-white/25">安全连接 · 统一身份透传 · 可观测调用</p></section>
+  </main>
 }

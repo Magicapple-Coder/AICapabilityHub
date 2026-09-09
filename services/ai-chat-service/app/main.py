@@ -4,6 +4,7 @@ from fastapi import FastAPI
 
 from app.api.v1.ping import router as ping_router
 from app.api.v1.chat import router as chat_router
+from app.api.v1.sessions import router as sessions_router
 from app.core.config import settings
 from app.core.exceptions import register_exception_handlers
 from app.core.logging import configure_logging, get_request_id, register_request_logging
@@ -27,6 +28,7 @@ register_request_logging(app)
 register_exception_handlers(app)
 app.include_router(ping_router, prefix="/api/chat", tags=["chat"])
 app.include_router(chat_router, prefix="/api/chat", tags=["chat"])
+app.include_router(sessions_router, prefix="/api/chat", tags=["chat"])
 
 
 @app.get("/health", response_model=Result)
